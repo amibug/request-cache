@@ -22,31 +22,91 @@
 //虽然数据延迟的问题无法解决，但保证了页面能正常访问。
 
 
-
 //缓存会阻止发送请求，因此遇到页面数据错误的时候，很难确定是缓存问题，还是 JS 逻辑问题，缓存是最容易“背黒锅”的。
 //这时候详细的日志很有必要。我们加了一个贴心的功能，在 url 上加 showLog=true 后会显示缓存命中日志
-//这时候详细的日志很有必要。我们加了一个贴心的功能，在 url 上加 showLog=true 后会显示缓存命中日志
-
 
 
 import { isFunction, isEmpty, cloneDeep } from 'lodash';
 import StoregeLru from './localstore-lru';
-import Util from './util';
+import {serialize, deserialize, endOfToday} from './util';
 
 // HACK: 当 url 中有 disableCache=true 时，禁用 localStorage
 const DISABLE_CACHE = location.search.indexOf('disableCache=true') > -1;
+// HACK: 当 url 中有 showLog=true 时，显示命中日志
+const SHOW_LOG = location.search.indexOf('showLog=true') > -1;
 
+// 约定以两个下划线结尾的自动过滤掉
+const skipStoreParams = [
+	'dtUpdateTime', 'dtMaxAge', 'dtExpireTime', 'callback', 'sycmToken', 'ctoken', 'token', 't', '_', '_t',
+];
 
 /**
- *
- * @param {string} url
- * @param {object} params
- * @param
- * @param {object} options
- *   {func} identityKeyFunc 生成缓存标志的函数
- *   {boolean} fallbackToCache 是否开启 fallbackToCache 模式，对应 __fallbackToCache 用于请求失败读取缓存的场景。
- *   useStore 是否强制去读缓存，但还是会判断过期时间
+ * 从 params 对象中去除 skipedKeys 和以双下划线__开头的 key，对参数进行排序
+ * 返回一个新对象
  */
+function stripParams(params = {}, skipedKeys = []) {
+	return Object.keys(params).sort().filter(key => {
+		return key.indexOf('__') === -1 && skipedKeys.indexOf(key) === -1;
+	}).reduce((result, key) => {
+		result[key] = params[key];
+		return result;
+	}, {});
+}
+
+/**
+ * 拼接 params 到 url
+ * @param {String} url 原始 url，可包含 param 和 hash
+ * @param {Object} params 参数
+ * @param {disableCache} disableCache 是否禁用缓存，默认为 false，如果禁用会在 params 结尾加上 _=timestamp
+ */
+const _generateCacheKey = function (url, params = {}) {
+	let urlWithParams, urlPath, paramsPart, hashPart;
+	urlPath = paramsPart = hashPart = '';
+	if (url.indexOf('#') > 0) {
+		hashPart = url.substring(url.indexOf('#'), url.length);
+		urlWithParams = url.substring(0, url.indexOf('#'));
+	} else {
+		urlWithParams = url;
+	}
+
+	if (urlWithParams.indexOf('?') > 0) {
+		urlPath = urlWithParams.substring(0, url.indexOf('?'));
+		paramsPart = urlWithParams.substring(urlWithParams.indexOf('?'), urlWithParams.length);
+	} else {
+		urlPath = urlWithParams;
+	}
+
+	Object.keys(params).forEach((key) => {
+		paramsPart += `&${key}=${params[key]}`;
+	});
+
+	if (paramsPart.length > 0) paramsPart = paramsPart.replace(/^&/, '?');
+
+	return [urlPath, paramsPart, hashPart].join('-');
+};
+
+/**
+ * 生成缓存的 key
+ */
+function generateCacheKey(url, params = {}) {
+	// 这里的 url 里也可能有参数，需要和 params 进行合并，找到直接的 pathname 和 params 部分
+	if (url.indexOf('?') === -1) {
+		return _generateCacheKey(url, stripParams(params, skipStoreParams));
+	} else {
+		const mergedParams = cloneDeep(params);
+		const [urlPart, paramsPart] = url.split('?');
+
+		// merge
+		paramsPart.split('&').forEach((paramsStr) => {
+			const [k, v] = paramsStr.split('=');
+			if (mergedParams[k] === undefined) {
+				mergedParams[k] = v;
+			}
+		});
+		return _generateCacheKey(urlPart, stripParams(mergedParams, skipStoreParams));
+	}
+}
+
 /**
  * 读取缓存，不存在则返回 null
  * @param {string} url
