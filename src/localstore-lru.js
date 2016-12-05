@@ -6,21 +6,18 @@ const StoregeLru = function(){
 };
 
 StoregeLru.prototype = {
-	keys(){
+	set(){
 
 	},
-	setItem(){
+	get(){
 
 	},
-	getItem(){
-
-	},
-	removeItem(){
+	remove(){
 
 	},
 	clear(){
 
 	}
-}
+};
 
 export default StoregeLru;

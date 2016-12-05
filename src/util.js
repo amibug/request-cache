@@ -81,7 +81,7 @@ const endOfToday = function() {
 	return endOfDayDate.getTime();
 };
 
-export  {
+export {
 	serialize,
 	deserialize,
 	isStorageSupported,
