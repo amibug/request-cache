@@ -12,6 +12,8 @@ import { isFunction, isEmpty, cloneDeep } from 'lodash';
 import StoregeLru from './localstore-lru';
 import { endOfToday } from './util';
 
+const store = new StoregeLru();
+
 // HACK: 当 url 中有 disableCache=true 时，禁用 localStorage
 const DISABLE_CACHE = location.search.indexOf('disableCache=true') > -1;
 // HACK: 当 url 中有 showLog=true 时，显示命中日志
@@ -117,7 +119,7 @@ function setCache(url, params = {}, data, options = {}) {
 		deleteTime = expireTime;
 
 		const key = generateCacheKey(url, params);
-		StoregeLru.set(
+		store.set(
 			key,
 			{
 				[DATA_KEY]: data,
@@ -160,7 +162,7 @@ function getCache(url, params = {}, options = {}) {
 
 	try {
 		const key = generateCacheKey(url, params);
-		const storeData = StoregeLru.get(key);
+		const storeData = store.get(key);
 		const identityKey = isFunction(identityKeyFunc) ? identityKeyFunc(url, params) : '';
 
 		if (!storeData)
@@ -170,18 +172,18 @@ function getCache(url, params = {}, options = {}) {
 				return null;
 			}
 			if (__forceToCache) { // 强制读取时不检查是否过期，直接返回
-				if (__showLog) {
+				if (SHOW_LOG || __showLog) {
 					console.log(`[Request Cache Return] url: ${url}, parameter: ${JSON.stringify(params)}, result:${JSON.stringify(storeData[DATA_KEY])}`);
 				}
 				return storeData[DATA_KEY];
 			}
 			if (storeData[EXPIRE_KEY] >= Date.now()) { // 检查是否过期
-				if (__showLog) {
+				if (SHOW_LOG || __showLog) {
 					console.log(`[Request Cache Return] url: ${url}, parameter: ${JSON.stringify(params)}, result:${JSON.stringify(storeData[DATA_KEY])}`);
 				}
 				return storeData[DATA_KEY];
 			} else {
-				StoregeLru.remove(key);
+				store.remove(key);
 				return null;
 			}
 		}
@@ -196,7 +198,7 @@ function getCache(url, params = {}, options = {}) {
  * 删除缓存
  */
 function removeCache(url, params) {
-	StoregeLru.remove(generateCacheKey(url, params));
+	store.remove(generateCacheKey(url, params));
 }
 
 
