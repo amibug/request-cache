@@ -18,8 +18,9 @@ class StoregeLru {
 	 */
 	setItem(key, val) {
 		if (val === undefined) {
-			return this.removeItem(key);
+			return this.remove(key);
 		}
+
 		storage.setItem(key, serialize(val));
 		return val;
 	}
@@ -41,11 +42,7 @@ class StoregeLru {
 	 */
 	set(key, value, force = true) {
 		try {
-			// 为存储数据增加过期时间expire
-			if (expire instanceof Date) {
-				expire = expire.getTime();
-			}
-			this.setItem(key, this.serialize(value));
+			this.setItem(key, value);
 			this.setQueue(key);
 			return value;
 		} catch (e) {
@@ -67,6 +64,7 @@ class StoregeLru {
 				}
 				if (max === 0) {
 					// 超过了尝试次数还是不够用，则抛出异常
+					console.error(e);
 					throw e;
 				}
 			}
@@ -84,8 +82,9 @@ class StoregeLru {
 			return null;
 
 		const value = this.getItem(key);
-
-		this.setQueue(key);
+		if (value != null) {
+			this.setQueue(key);
+		}
 		return value;
 	}
 
@@ -119,13 +118,15 @@ class StoregeLru {
 		const cacheQueue = this.getItem(this._cache_queue) || {};
 		const current = cacheQueue[key];
 		if (current == null) {
-			cacheQueue[key].key = key;
+			cacheQueue[key] = {};
+			//cacheQueue[key].key = key;
 			cacheQueue[key].fre = 1; // 初始化使用频率为1
 			cacheQueue[key].time = Date.now();
 		} else {
 			cacheQueue[key].fre++;
 			cacheQueue[key].time = Date.now();
 		}
+
 		this.setItem(this._cache_queue, cacheQueue);
 	}
 

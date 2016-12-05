@@ -97,6 +97,8 @@ function generateCacheExpire(params) {
 	if (params.dtMaxAge != null && params.dtExpireTime == null) {
 		return params.dtMaxAge + Date.now();
 	}
+
+	// 当天结束
 	return endOfToday();
 }
 
@@ -116,7 +118,7 @@ function setCache(url, params = {}, data, options = {}) {
 		let expireTime, deleteTime;
 
 		expireTime = generateCacheExpire(params);
-		deleteTime = expireTime;
+		deleteTime = expireTime + 12 * 12 * 60 * 60000;
 
 		const key = generateCacheKey(url, params);
 		store.set(
@@ -167,10 +169,16 @@ function getCache(url, params = {}, options = {}) {
 
 		if (!storeData)
 			return null;
+
 		if (storeData && storeData[DATA_KEY]) {
 			if (identityKey !== storeData[IDENTITY_KEY]) { // identityKey 变化，返回空,用于区分不同用户的缓存数据
 				return null;
 			}
+			if (storeData[DELETE_KEY] < Date.now()) { // 检查是否需要删除
+				store.remove(key);
+				return null;
+			}
+
 			if (__forceToCache) { // 强制读取时不检查是否过期，直接返回
 				if (SHOW_LOG || __showLog) {
 					console.log(`[Request Cache Return] url: ${url}, parameter: ${JSON.stringify(params)}, result:${JSON.stringify(storeData[DATA_KEY])}`);
@@ -183,9 +191,9 @@ function getCache(url, params = {}, options = {}) {
 				}
 				return storeData[DATA_KEY];
 			} else {
-				store.remove(key);
 				return null;
 			}
+
 		}
 		return null;
 	} catch (e) {
