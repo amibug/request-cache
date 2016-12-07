@@ -1,13 +1,3 @@
-//缓存的 key 里仅包括 url 和 params，这样是为了可以同时缓存不同 params 的结果
-//value 中放入 _identityKey 来标记缓存是否变化，其中有当前 userId 用于保证切换用户后缓存过期。数据更新时间保证数据更新后自动过期。
-//同时使用了 _expireAt 和 _deleteAt 两个时间。其中 _expireAt 来标记数据什么时候过期，_deleteAt 来标记什么时候删除缓存数据。
-//这样是为了实现接口报错后读取缓存的目的。如把支付金额的 _expireAt 设置为 5 秒钟，_deleteAt 设置为当天结束 23:59:59。
-//这样就可以防止用户疯狂刷新页面。因为在 5 秒内的刷新都不会再发请求，超过5秒后才会发请求。如果两个小时后接口报错，就会读取当天已过期但还没删除的数据。
-//虽然数据延迟的问题无法解决，但保证了页面能正常访问。
-//缓存会阻止发送请求，因此遇到页面数据错误的时候，很难确定是缓存问题，还是 JS 逻辑问题，缓存是最容易“背黒锅”的。
-//这时候详细的日志很有必要。我们加了一个贴心的功能，在 url 上加 showLog=true 后会显示缓存命中日志
-
-
 import { isFunction, isEmpty, cloneDeep } from 'lodash';
 import StoregeLru from './localstore-lru';
 import { endOfToday } from './util';
